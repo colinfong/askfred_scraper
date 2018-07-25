@@ -1,5 +1,6 @@
 import requests
 import re
+from bs4 import BeautifulSoup
 
 # Enter the url to the division search page to paginate all tournament IDs
 def get_all_ids(div):
@@ -15,7 +16,6 @@ def get_all_ids(div):
         page = requests.get(div + page_str)
 
         #print(page.status_code)
-        from bs4 import BeautifulSoup
         soup = BeautifulSoup(page.content, 'html.parser')
 
         # Retrieve the next sibling of the 'Email The Organizers' button
