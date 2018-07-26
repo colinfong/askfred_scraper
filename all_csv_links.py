@@ -1,3 +1,4 @@
+import json
 from scraping_tournament_csv_link import get_csv_link
 from search_scraper import get_all_ids
 
@@ -46,5 +47,8 @@ def make_tournament_urls(tourney_ids):
         tourney_urls.append(csv_url_format + tourney_id.decode("utf-8"))
     return tourney_urls
 
+    
+all_csv = get_all_csv_links(all_ids)
 
-print(get_all_csv_links(all_ids))
+with open("./output/all_csv_links.json", 'w') as outfile:
+    json.dump(all_csv, outfile)
