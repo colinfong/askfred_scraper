@@ -8,12 +8,11 @@ with open("./output/all_csv_links.json") as f:
     data = json.load(f)
 
 for i,csv_link in enumerate(data):
-    
     matches = re.findall(".*_id=([0-9]*)", csv_link)
     tournament_id = matches[0]
     print("Downloading " + str(tournament_id) + " from " + csv_link)
-    print(str(i) + " of " + str(len(data)))
-    filename = "./tourney_csvs/" + str(tournament_id)
+    print(str(i+1) + " of " + str(len(data)))
+    filename = "./tourney_csvs/" + str(tournament_id) + ".csv"
     if not os.path.exists(os.path.dirname(filename)):
         try:
             os.makedirs(os.path.dirname(filename))
