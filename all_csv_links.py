@@ -19,6 +19,7 @@ all_ids.extend(get_all_ids(m_valley))
 all_ids = [id.encode("utf-8") for id in all_ids]
 # print(all_ids)
 
+# Grabs all the CSV links given all the IDs as a list
 def get_all_csv_links(tourney_ids):
 
     tournament_url = make_tournament_urls(tourney_ids)
@@ -40,6 +41,7 @@ def get_all_csv_links(tourney_ids):
     print("URLs retrieved with", success, "successes and", failure, "failures.")
     return csv_links
 
+# Appends tournament IDs onto the URL
 def make_tournament_urls(tourney_ids):
     csv_url_format = "https://askfred.net/Results/results.php?tournament_id="
     tourney_urls = []
@@ -48,6 +50,7 @@ def make_tournament_urls(tourney_ids):
     return tourney_urls
 
     
+# Grabs all the links and stores them in a JSON file
 all_csv = get_all_csv_links(all_ids)
 
 with open("./output/all_csv_links.json", 'w') as outfile:
