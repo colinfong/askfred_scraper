@@ -27,8 +27,8 @@ def find_csv_index(head):
             # 54 for index up to /tourResultsCSV
             if href[:54] == csv_link_start:
                 return index
+        # Ignoring the new lines and other array objects without children
         except:
-            #this is probably a bad way to handle errors/the new lines. advice?
             continue
     return -1
 
