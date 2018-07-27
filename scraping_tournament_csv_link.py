@@ -4,7 +4,7 @@ from bs4 import BeautifulSoup
 #test_url = "https://askfred.net/Results/results.php?tournament_id=39072"
 #test_url = "https://askfred.net/Results/results.php?tournament_id=10071"
 
-
+# Gets the csv link for a single page given a tournament url
 def get_csv_link(tournament_url):
     print("Getting CSV from:", tournament_url)
     page = requests.get(tournament_url)
@@ -18,6 +18,7 @@ def get_csv_link(tournament_url):
     print("Success!")
     return href
 
+# Returns the index for the div with the csv link in the 'other-links' section
 def find_csv_index(head):
     csv_link_start = "https://askfred.net/Committee/Downloads/tourResultsCSV"
     for index in range(0, len(head)):
