@@ -1,7 +1,7 @@
 import json
 from scraping_tournament_csv_link import get_csv_link
 from search_scraper import get_all_ids
-
+import os
 
 #Foil/All Gender/Senior/is before 7-11-2018
 #Northern California
@@ -53,5 +53,13 @@ def make_tournament_urls(tourney_ids):
 # Grabs all the links and stores them in a JSON file
 all_csv = get_all_csv_links(all_ids)
 
-with open("./output/all_csv_links.json", 'w') as outfile:
+filename = "./output/all_csv_links.json"
+if not os.path.exists(os.path.dirname(filename)):
+    try:
+        os.makedirs(os.path.dirname(filename))
+    except OSError as exc:
+        if exc.errno != errno.EEXIST:
+            raise
+
+with open(filename, 'w') as outfile:
     json.dump(all_csv, outfile)
