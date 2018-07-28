@@ -26,7 +26,7 @@ for f in files:
         if len(standard_headers) == 0:
             standard_headers = rows[0]
         else:
-            for col in xrange(len(rows[0])):
+            for col in range(len(rows[0])):
                 if standard_headers[col] != rows[0][col]:
                     headers_correct = False
                     different_headers.append(f)
