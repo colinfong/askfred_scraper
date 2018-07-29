@@ -3,11 +3,14 @@ from os.path import isfile, join
 import csv
 import MySQLdb
 
-directory = "./tourney_csvs/"
-standard_headers = []
-headers_correct = True
-different_headers = []
-first_file = ""
+def MMDDYYYY_to_YYYYMMDD(date):
+    formatted = ""
+    formatted += date[6:len(date)]
+    formatted += '-'
+    formatted += date[0:2]
+    formatted += '-'
+    formatted += date[3:5]
+    return formatted
 
 db=MySQLdb.connect(db="fencing",user="root",read_default_file="~/.my.cnf")
 # print(type(db))
@@ -47,7 +50,11 @@ CREATE TABLE instances (
 )
 """)
 
-
+directory = "./tourney_csvs/"
+standard_headers = []
+headers_correct = True
+different_headers = []
+first_file = ""
 
 # Get all names of CSVs
 files = [f for f in listdir(directory) if isfile(join(directory, f))]
@@ -65,21 +72,15 @@ with open(directory + f, 'r') as csvfile:
 #print(rows[1][9:len(rows[0])])
 #print(rows[1][0:9])
 
-rows[1][8] = int(rows[1][8])
-row = rows[1][1:9] #temp to avoid formatting date and deal only with string
+rows[1][0] = MMDDYYYY_to_YYYYMMDD(rows[1][0])
+row = rows[1][:9] #temp to avoid formatting date and deal only with string
 
-#to do: format date, check for uniqueness of row before appending to tournaments, loop through one csv, loop through all csvs
+#to do: check for uniqueness of row before appending to tournaments, loop through one csv, loop through all csvs
 
-c = db.cursor()
-query_string = 'INSERT INTO tournaments (tournament, event, weapon, event_gender, rating_restriction, age_restriction, event_rating, event_size) \
-VALUES (%s, %s, %s, %s, %s, %s, %s, %s);'
+cursor = db.cursor()
+query_string = 'INSERT INTO tournaments (date, tournament, event, weapon, event_gender, rating_restriction, age_restriction, event_rating, event_size) \
+VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s);'
+cursor.execute(query_string, row)
 
-print(query_string, row)
-c.execute(query_string, row)
-
-#print(sql, row)
-
-#c.execute(sql, row)
-
-c.execute("SELECT * FROM tournaments;")
-print(c.fetchone())
+cursor.execute("SELECT * FROM tournaments;")
+print(cursor.fetchone())
