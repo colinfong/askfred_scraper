@@ -13,8 +13,19 @@ def MMDDYYYY_to_YYYYMMDD(date):
     formatted += date[3:5]
     return formatted
 
+def is_new_tournament(old_tournament, new_tournament):
+    print("Old Length: " + str(len(old_tournament)))
+    print("New Length: " + str(len(new_tournament)))
+    if len(old_tournament) != len(new_tournament):
+        return True
+    for index in range(0, len(old_tournament)):
+        print(index)
+        if old_tournament[index] != new_tournament[index]:
+            return True
+    return False
+
 db=MySQLdb.connect(db="fencing",user="root",read_default_file="~/.my.cnf")
-# print(type(db))
+cursor = db.cursor()
 
 #rebuilding the table everytime for reproducible sharing, temporary
 db.query("""DROP TABLE IF EXISTS tournaments;""")
@@ -38,12 +49,12 @@ CREATE TABLE tournaments (
 """)
 db.query("""
 CREATE TABLE instances (
-                            id CHAR(36) NOT NULL,
+                            id INT NOT NULL AUTO_INCREMENT,
                             tournament_id CHAR(36) NOT NULL,
                             place INT,
                             last_name VARCHAR(30),
                             first_name VARCHAR(30),
-                            club VARCHAR(30),
+                            club VARCHAR(75),
                             usfa_num INT,
                             rating_before VARCHAR(6),
                             rating_earned VARCHAR(6),
@@ -70,38 +81,61 @@ with open(directory + f, 'r') as csvfile:
 
 # Col 0:9 for tournaments table
 # Col 9:len(rows[0]) for instances table
-#print(rows[1][9:len(rows[0])])
-#print(rows[1][0:9])
 
+date_index = 0
 split_index = 9
+usfa_index = 13
 
-rows[1][0] = MMDDYYYY_to_YYYYMMDD(rows[1][0])
+tournament_row_prev = []
+tournament_uuid = ""
 
-#initialize outside and then redo id during unique row, need function for unique row
-tournament_row = rows[1][:split_index]
-tournament_uuid = uuid.uuid4()
-tournament_row.insert(0, tournament_uuid)
+for row_index in range(1, len(rows)):
+    # Format Date and NULL for empty USFA numbers
+    rows[row_index][date_index] = MMDDYYYY_to_YYYYMMDD(rows[row_index][date_index])
 
-instance_row = rows[1][split_index:len(rows[1])]
-instance_row.insert(0, tournament_uuid)
-instance_uuid = uuid.uuid4()
-instance_row.insert(0, instance_uuid)
-#to do: check for uniqueness of row before appending to tournaments, loop through one csv, loop through all csvs
+    if rows[row_index][usfa_index] == '':
+        rows[row_index][usfa_index] = None
 
-cursor = db.cursor()
-query_string = 'INSERT INTO tournaments (id, date, tournament, event, weapon, event_gender, rating_restriction, age_restriction, event_rating, event_size) \
-VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s);'
-cursor.execute(query_string, tournament_row)
+    # Prepare for comparison
+    tournament_row = rows[row_index][:split_index]
 
-query_string = 'INSERT INTO instances (id, tournament_id, place, last_name, first_name, club, usfa_num, rating_before, rating_earned) \
-VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s);'
-cursor.execute(query_string, instance_row)
+    # Handles tournament changes in CSV (New UUID, creates new row in tournaments)
+    if is_new_tournament(tournament_row_prev, tournament_row):
+        tournament_row_prev = tournament_row.copy()
+        tournament_uuid = uuid.uuid4()
+        tournament_row.insert(0, tournament_uuid)
+
+        query_string = 'INSERT INTO tournaments (id, date, tournament, event, weapon, event_gender, rating_restriction, age_restriction, event_rating, event_size) \
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s);'
+        cursor.execute(query_string, tournament_row)
+    else:
+        tournament_row_prev = tournament_row.copy()
+
+    # Creates new row in instance
+    #instance_uuid = uuid.uuid4()
+    instance_row = rows[row_index][split_index:len(rows[1])]
+    instance_row.insert(0, tournament_uuid)
+    #instance_row.insert(0, instance_uuid)
+
+    query_string = 'INSERT INTO instances (tournament_id, place, last_name, first_name, club, usfa_num, rating_before, rating_earned) \
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s);'
+    cursor.execute(query_string, instance_row)
 
 cursor.execute("SELECT * FROM tournaments;")
-print(cursor.fetchone())
+
+while True:
+    table_row = cursor.fetchone()
+    if table_row == None:
+        break
+    print(table_row)
 
 cursor.execute("SELECT * FROM instances;")
-print(cursor.fetchone())
+
+while True:
+    table_row = cursor.fetchone()
+    if table_row == None:
+        break
+    print(table_row)
 
 cursor.close()
 db.commit()
