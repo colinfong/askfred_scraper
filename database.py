@@ -2,6 +2,7 @@ from os import listdir
 from os.path import isfile, join
 import csv
 import MySQLdb
+import uuid
 
 def MMDDYYYY_to_YYYYMMDD(date):
     formatted = ""
@@ -22,7 +23,7 @@ db.query("""DROP TABLE IF EXISTS instances;""")
 # Can revisit the length of varchars for appropriateness?
 db.query(""" 
 CREATE TABLE tournaments (
-                            id INT NOT NULL AUTO_INCREMENT,
+                            id CHAR(36) NOT NULL,
                             date DATE,
                             tournament VARCHAR(50),
                             event VARCHAR(50),
@@ -37,7 +38,8 @@ CREATE TABLE tournaments (
 """)
 db.query("""
 CREATE TABLE instances (
-                            id INT,
+                            id CHAR(36) NOT NULL,
+                            tournament_id CHAR(36) NOT NULL,
                             place INT,
                             last_name VARCHAR(30),
                             first_name VARCHAR(30),
@@ -45,7 +47,6 @@ CREATE TABLE instances (
                             usfa_num INT,
                             rating_before VARCHAR(6),
                             rating_earned VARCHAR(6),
-                            tournament_id INT,
                             PRIMARY KEY (id)
 )
 """)
@@ -72,15 +73,36 @@ with open(directory + f, 'r') as csvfile:
 #print(rows[1][9:len(rows[0])])
 #print(rows[1][0:9])
 
-rows[1][0] = MMDDYYYY_to_YYYYMMDD(rows[1][0])
-row = rows[1][:9] #temp to avoid formatting date and deal only with string
+split_index = 9
 
+rows[1][0] = MMDDYYYY_to_YYYYMMDD(rows[1][0])
+
+#initialize outside and then redo id during unique row, need function for unique row
+tournament_row = rows[1][:split_index]
+tournament_uuid = uuid.uuid4()
+tournament_row.insert(0, tournament_uuid)
+
+instance_row = rows[1][split_index:len(rows[1])]
+instance_row.insert(0, tournament_uuid)
+instance_uuid = uuid.uuid4()
+instance_row.insert(0, instance_uuid)
 #to do: check for uniqueness of row before appending to tournaments, loop through one csv, loop through all csvs
 
 cursor = db.cursor()
-query_string = 'INSERT INTO tournaments (date, tournament, event, weapon, event_gender, rating_restriction, age_restriction, event_rating, event_size) \
+query_string = 'INSERT INTO tournaments (id, date, tournament, event, weapon, event_gender, rating_restriction, age_restriction, event_rating, event_size) \
+VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s);'
+cursor.execute(query_string, tournament_row)
+
+query_string = 'INSERT INTO instances (id, tournament_id, place, last_name, first_name, club, usfa_num, rating_before, rating_earned) \
 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s);'
-cursor.execute(query_string, row)
+cursor.execute(query_string, instance_row)
 
 cursor.execute("SELECT * FROM tournaments;")
 print(cursor.fetchone())
+
+cursor.execute("SELECT * FROM instances;")
+print(cursor.fetchone())
+
+cursor.close()
+db.commit()
+db.close()
