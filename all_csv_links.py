@@ -2,6 +2,7 @@ import json
 from scraping_tournament_csv_link import get_csv_link
 from search_scraper import get_all_ids
 import os
+import errno
 
 #Foil/All Gender/Senior/is before 7-11-2018
 #Northern California
