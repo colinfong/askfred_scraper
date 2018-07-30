@@ -3,15 +3,7 @@ from os.path import isfile, join
 import csv
 import MySQLdb
 import uuid
-
-def MMDDYYYY_to_YYYYMMDD(date):
-    formatted = ""
-    formatted += date[6:len(date)]
-    formatted += '-'
-    formatted += date[0:2]
-    formatted += '-'
-    formatted += date[3:5]
-    return formatted
+from datetime import datetime
 
 def is_new_tournament(old_tournament, new_tournament):
     if len(old_tournament) != len(new_tournament):
@@ -36,7 +28,7 @@ def single_csv_to_db(f):
 
     for row_index in range(1, len(rows)):
         # Format Date and NULL for empty USFA numbers and empty events
-        rows[row_index][date_index] = MMDDYYYY_to_YYYYMMDD(rows[row_index][date_index])
+        rows[row_index][date_index] = datetime.strptime(rows[row_index][date_index], '%m/%d/%Y').strftime('%Y-%m-%d')
 
         if rows[row_index][usfa_index] == '':
             rows[row_index][usfa_index] = None
