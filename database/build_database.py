@@ -107,7 +107,7 @@ CREATE TABLE instances (
 )
 """)
 
-directory = "./tourney_csvs/"
+directory = "../tourney_csvs/"
 
 # Get all names of CSVs
 files = [f for f in listdir(directory) if isfile(join(directory, f))]
