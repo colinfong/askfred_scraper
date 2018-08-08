@@ -2,8 +2,10 @@ from os import listdir
 from os.path import isfile, join
 import csv
 import MySQLdb
-import uuid
 from datetime import datetime
+
+tournament_id = 0
+result_id = 1
 
 def is_new_tournament(old_tournament, new_tournament):
     if len(old_tournament) != len(new_tournament):
@@ -24,7 +26,10 @@ def single_csv_to_db(f):
     event_size_index = 8
 
     tournament_row_prev = []
-    tournament_uuid = ""
+
+    # Brings tournament_id into scope
+    global tournament_id
+    global result_id
 
     for row_index in range(1, len(rows)):
         # Format Date and NULL for empty USFA numbers and empty events
@@ -39,11 +44,12 @@ def single_csv_to_db(f):
         # Prepare for comparison
         tournament_row = rows[row_index][:split_index]
 
-        # Handles tournament changes in CSV (New UUID, creates new row in tournaments)
+        # Handles tournament changes in CSV (Creates new row in tournaments)
         if is_new_tournament(tournament_row_prev, tournament_row):
             tournament_row_prev = tournament_row.copy()
-            tournament_uuid = uuid.uuid4()
-            tournament_row.insert(0, tournament_uuid)
+            tournament_id += 1
+            tournament_row.insert(0, str(tournament_id))
+            
 
             query_string = 'INSERT INTO tournaments (id, date, tournament, event, weapon, event_gender, rating_restriction, age_restriction, event_rating, event_size) \
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s);'
@@ -51,15 +57,16 @@ def single_csv_to_db(f):
         else:
             tournament_row_prev = tournament_row.copy()
 
-        # Creates new row in instance, can use UUID if necessary. Currently on auto-increment.
-        #instance_uuid = uuid.uuid4()
-        instance_row = rows[row_index][split_index:len(rows[1])]
-        instance_row.insert(0, tournament_uuid)
-        #instance_row.insert(0, instance_uuid)
+        # Creates new row in tournament_result
+        tournament_result_row = rows[row_index][split_index:len(rows[1])]
+        tournament_result_row.insert(0, str(tournament_id))
+        tournament_result_row.insert(0, str(result_id))
+        result_id += 1
+        #print(tournament_result_row)
 
-        query_string = 'INSERT INTO instances (tournament_id, place, last_name, first_name, club, usfa_num, rating_before, rating_earned) \
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s);'
-        cursor.execute(query_string, instance_row)
+        query_string = 'INSERT INTO tournament_results (id, tournament_id, place, last_name, first_name, club, usfa_num, rating_before, rating_earned) \
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s);'
+        cursor.execute(query_string, tournament_result_row)
 
 
 
@@ -73,13 +80,14 @@ except:
 
 
 #rebuilding the table everytime for reproducible sharing, temporary
+db.query("""DROP TABLE IF EXISTS tournament_results;""")
 db.query("""DROP TABLE IF EXISTS tournaments;""")
-db.query("""DROP TABLE IF EXISTS instances;""")
+
 
 # Can revisit the length of varchars for appropriateness?
 db.query(""" 
 CREATE TABLE tournaments (
-                            id CHAR(36) NOT NULL,
+                            id INT NOT NULL,
                             date DATE,
                             tournament VARCHAR(200),
                             event VARCHAR(300),
@@ -93,9 +101,9 @@ CREATE TABLE tournaments (
 )
 """)
 db.query("""
-CREATE TABLE instances (
-                            id INT NOT NULL AUTO_INCREMENT,
-                            tournament_id CHAR(36) NOT NULL,
+CREATE TABLE tournament_results (
+                            id INT NOT NULL,
+                            tournament_id INT NOT NULL,
                             place INT,
                             last_name VARCHAR(200),
                             first_name VARCHAR(200),
@@ -107,6 +115,8 @@ CREATE TABLE instances (
 )
 """)
 
+
+
 directory = "../tourney_csvs/"
 
 # Get all names of CSVs
@@ -116,6 +126,14 @@ files = [f for f in listdir(directory) if isfile(join(directory, f))]
 for file in files:
     single_csv_to_db(file)
 
+
+db.query("""
+ALTER TABLE tournament_results
+ADD CONSTRAINT fk_tournament_id
+FOREIGN KEY (tournament_id)
+REFERENCES tournaments(id)
+""")
+
 # cursor.execute("SELECT * FROM tournaments LIMIT 100;")
 
 # while True:
@@ -124,7 +142,7 @@ for file in files:
 #         break
 #     print(table_row)
 
-# cursor.execute("SELECT * FROM instances LIMIT 100;")
+# cursor.execute("SELECT * FROM tournament_results LIMIT 100;")
 
 # while True:
 #     table_row = cursor.fetchone()
