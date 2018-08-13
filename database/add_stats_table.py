@@ -1,5 +1,12 @@
 import MySQLdb
 import enum
+import math
+
+success = 0
+fail = 0
+
+# 11557 successes 228 failures as of August 13, 2018
+
 
 # values associated with each rating
 class ratings(enum.Enum):
@@ -89,7 +96,7 @@ class Tournament:
 
 # class to build a single row, helps organize methods
 class Stats_Row(Tournament):
-    def __init__(self, tournament, tournament_results_id, tournament_id, place, last_name, first_name):
+    def __init__(self, tournament, tournament_results_id, tournament_id, place, last_name, first_name, rating_before):
 
         self.tournament = tournament
         self.tournament_results_id = tournament_results_id
@@ -97,14 +104,11 @@ class Stats_Row(Tournament):
         self.place = place
         self.last_name = last_name
         self.first_name = first_name
-
-        # database connection for handling calculations
-        try:
-            db=MySQLdb.connect(db="fencing",user="root",read_default_file="~/.my.cnf")
-            cursor = db.cursor()
-        except:
-            print("Error connecting.")
-            raise
+        if rating_before != "":
+            # print("rating before: " + rating_before) 1st problem at 420
+            self.rating_before = rating_before[0]
+        else:
+            self.rating_before = "U"
 
         # calculations
         try: 
@@ -113,20 +117,18 @@ class Stats_Row(Tournament):
             self.weighted_performance = self._calculate_weighted_performance()
             self.performance_points = self._calculate_performance_points()
             # median expected placement?
-            #self.expected_placement = self._calculate_expected_placement()
-            #self.expected_performance_points = self._calculate_expected_performance_points()
+            self.expected_placement = self._calculate_expected_placement()
+            self.expected_performance_points = self._calculate_expected_performance_points()
         except:
             print("Error calculating.")
             raise
 
-        cursor.close()
-        db.commit()
-        db.close()
-
     # builds a query to insert row
     def get_insert_query(self):
-        # query = "first_name: " + self.first_name + " expected_rating_for_placement: " + self.expected_rating_for_placement + " weighted_performance: " + str(self.weighted_performance) + " inverted_placement: " + str(self.inverted_placement) + " performance_points: " + str(self.performance_points)
-        query = ""
+        # long debugging query
+        # query = "first_name: " + self.first_name + " expected_rating_for_placement: " + self.expected_rating_for_placement + " weighted_performance: " + str(self.weighted_performance) + " inverted_placement: " + str(self.inverted_placement) + " performance_points: " + str(self.performance_points) + " expected_placement: " + str(self.expected_placement) + " expected_performance_points: " + str(self.expected_performance_points) + " performance points: " + str(self.performance_points)
+        query = "INSERT INTO performance_statistics (tournament_results_id, tournament_id, last_name, first_name, inverted_placement, expected_rating_for_placement, weighted_performance, performance_points, expected_placement, expected_performance_points) \
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s);"
         return query
 
     # following methods used to performance row calculations during __init__
@@ -134,19 +136,42 @@ class Stats_Row(Tournament):
 
     def _calculate_inverted_placement(self):
 
-        cursor.execute("SELECT place FROM tournament_results WHERE id = " + str(self.tournament_results_id) + ";")
-        placement = cursor.fetchall()[0][0]
+        #cursor.execute("SELECT place FROM tournament_results WHERE id = " + str(self.tournament_results_id) + ";")
+        #placement = cursor.fetchall()[0][0]
         # print("Placement: " + str(placement))
-        return self.tournament.number_of_participants - placement + 1
+        return self.tournament.number_of_participants - self.place + 1
 
     def _calculate_performance_points(self):
         return self.weighted_performance * self.inverted_placement
 
     def _calculate_expected_performance_points(self):
-        return None
+        # expected_weighted_performance == 1 for current model (placing within bracket)
+        return 1 * self.expected_placement
 
     def _calculate_expected_placement(self):
-        return None
+        rating_index = 0
+        count_index = 1
+        expected_placement = 0
+
+        for index in range(len(self.tournament.rating_counts)):
+            
+            iterate_rating = self.tournament.rating_counts[index][rating_index]
+            iterate_count = self.tournament.rating_counts[index][count_index]
+
+            # add on counts above the person
+            if iterate_rating != self.rating_before:
+                expected_placement += iterate_count
+            # add half the number of placements in fencer's rating bracket
+            if iterate_rating == self.rating_before:
+                if (iterate_count % 2 == 0):
+                    expected_placement += iterate_count/2
+                else:
+                    expected_placement += math.ceil(iterate_count/2)
+                break
+
+        # print("rating: " + self.rating_before)
+        # print("expected: " + str(expected_placement))
+        return expected_placement
 
     def _calculate_weighted_performance(self):
         if self.tournament.number_of_participants > 0:
@@ -161,21 +186,24 @@ class Stats_Row(Tournament):
         if self.tournament.number_of_participants > 0:
             if self.tournament.result_ids_and_ratings[self.place - 1][1] != "":
                 expected_rating_for_placement = self.tournament.sorted_ratings[self.place - 1]
-        return expected_rating_for_placement
+                return expected_rating_for_placement
 
 
 
 # adds 'n' rows to the stats table given a tournament ID (where n = number of participants in tournament)
 def add_tournament_stats(tournament_id, db_cursor):
 
+    print("Loading tournament number: " + str(tournament_id))
+
     # grabs essential information from tournament results to duplicate in stats table
-    db_cursor.execute("SELECT id, tournament_id, place, last_name, first_name FROM tournament_results WHERE \
+    db_cursor.execute("SELECT id, tournament_id, place, last_name, first_name, rating_before FROM tournament_results WHERE \
     tournament_id = " + str(tournament_id) + ";")
     tournament_results = db_cursor.fetchall()
 
     this_tournament = Tournament(tournament_id)
 
-    print("\n NEW TOURNAMENT \n")
+    global success
+    global fail
     # builds and inserts a stats row corresponding to each entry in tournament results
     for row in tournament_results:
 
@@ -184,14 +212,20 @@ def add_tournament_stats(tournament_id, db_cursor):
         place = row[2]
         last_name = row[3]
         first_name = row[4]
+        rating_before = row[5]
         # print(row)
 
         try:
-            current_row = Stats_Row(this_tournament, tournament_results_id, tournament_id, place, last_name, first_name)
-            #print(current_row.get_insert_query())
-            #db_cursor.execute(current_row.get_insert_query())
+            current_row = Stats_Row(this_tournament, tournament_results_id, tournament_id, place, last_name, first_name, rating_before)
         except:
             print("Failed to build row where tournament_results(id) = " + str(tournament_results_id))
+        
+        try:
+            db_cursor.execute(current_row.get_insert_query(), (tournament_results_id, tournament_id, last_name, first_name, current_row.inverted_placement, current_row.expected_rating_for_placement, current_row.weighted_performance, current_row.performance_points, current_row.expected_placement, current_row.expected_performance_points))
+            success += 1
+        except:
+            print("Failed to load row where tournament_results(id) = " + str(tournament_results_id))
+            fail += 1
 
 
 
@@ -212,7 +246,7 @@ except:
 db.query("""DROP TABLE IF EXISTS performance_statistics;""")
 
 db.query("""CREATE TABLE performance_statistics (
-                                                id INT NOT NULL,
+                                                id INT NOT NULL AUTO_INCREMENT,
                                                 tournament_results_id INT NOT NULL,
                                                 tournament_id INT NOT NULL,
                                                 last_name VARCHAR(200),
@@ -222,10 +256,11 @@ db.query("""CREATE TABLE performance_statistics (
                                                 weighted_performance INT,
                                                 performance_points INT,
                                                 expected_placement INT,
-                                                expected_performance_points INT
+                                                expected_performance_points INT,
+                                                PRIMARY KEY (id)
 )""")
 
-cursor.execute("SELECT id FROM tournaments LIMIT 2")
+cursor.execute("SELECT id FROM tournaments;")
 tournament_ids = cursor.fetchall()
 id_index = 0
 
@@ -233,12 +268,9 @@ for row in tournament_ids:
     id_num = row[id_index]
     add_tournament_stats(id_num, cursor)
 
-# db.query("""
-# ALTER TABLE performance_statistics
-# ADD CONSTRAINT fk_tournament_id
-# FOREIGN KEY (tournament_id)
-# REFERENCES tournaments(id)
-# """)
+print("Done loading rows with " + str(success) + " successes and" + str(fail) + " failures.")
+
+# can't yet add foreign key constraint due to loading failures
 
 # db.query("""
 # ALTER TABLE performance_statistics
