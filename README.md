@@ -21,7 +21,7 @@ python3 ./database/build_databases.py
 ```
 5. Generate statistics on tournament results and save them to the database.
  ```
- python3 ./database/tournament_expectation.py
+ python3 ./database/add_stats_table.py
  ```
 
 ## Authors
