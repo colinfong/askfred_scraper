@@ -23,8 +23,9 @@ class Tournament:
             print("Error connecting.")
 
         self.number_of_participants = self._calculate_number_of_participants()
-        self.result_ids = self._retrieve_result_ids()
+        self.result_ids_and_ratings = self._retrieve_result_ids()
         self.sorted_ratings = self._calculate_sorted_ratings()
+        self.rating_counts = self._calculate_rating_counts()
 
         cursor.close()
         db.commit()
@@ -41,15 +42,15 @@ class Tournament:
         # Get all results of a single tournament
         cursor.execute("SELECT id, rating_before FROM tournament_results WHERE tournament_id =" + str(self.id_num) + "")
         tournament_results = cursor.fetchall()
-        result_ids = []
+        result_ids_and_ratings = []
         for result in tournament_results:
             rating = ""
             if result[1] != "":
                 # First character of rating EX: A2012
                 rating = result[1][0]
             # Result ID and rating before of ID
-            result_ids.append([result[0], rating])
-        return result_ids
+            result_ids_and_ratings.append([result[0], rating])
+        return result_ids_and_ratings
     
     def _calculate_sorted_ratings(self):
         # Get ratings in order
@@ -61,6 +62,30 @@ class Tournament:
             if rating[0] != "":
                 sorted_ratings.append(rating[0][0])
         return sorted_ratings
+    
+    def _calculate_rating_counts(self):
+        rating_counts = [['A', 0], ['B', 0], ['C', 0], ['D', 0], ['E', 0], ['U', 0]]
+        rating_count_index = 0
+        sorted_rating_index = 0
+        # count through ratings
+        while sorted_rating_index < len(self.sorted_ratings):
+            rating = self.sorted_ratings[sorted_rating_index]
+            count = 0
+            # finds next rating from rating_counts
+            while rating_counts[rating_count_index][0] != rating:
+                rating_count_index += 1
+            # while the ratings are equal, keep going through the sorted list
+            while rating == rating_counts[rating_count_index][0]:
+                count += 1
+                sorted_rating_index += 1
+                if sorted_rating_index > len(self.sorted_ratings) - 1:
+                    break
+                rating = self.sorted_ratings[sorted_rating_index][0]
+            # add the final count to the current rating
+            rating_counts[rating_count_index][1] = count
+            #print(rating_counts)
+        #print("Number of Participants (check against counts): " + self.number_of_participants)
+        return rating_counts
 
 # class to build a single row, helps organize methods
 class Stats_Row(Tournament):
@@ -100,7 +125,8 @@ class Stats_Row(Tournament):
 
     # builds a query to insert row
     def get_insert_query(self):
-        query = "first_name: " + self.first_name + " expected_rating_for_placement: " + self.expected_rating_for_placement + " weighted_performance: " + str(self.weighted_performance)
+        # query = "first_name: " + self.first_name + " expected_rating_for_placement: " + self.expected_rating_for_placement + " weighted_performance: " + str(self.weighted_performance) + " inverted_placement: " + str(self.inverted_placement) + " performance_points: " + str(self.performance_points)
+        query = ""
         return query
 
     # following methods used to performance row calculations during __init__
@@ -124,8 +150,8 @@ class Stats_Row(Tournament):
 
     def _calculate_weighted_performance(self):
         if self.tournament.number_of_participants > 0:
-            if self.tournament.result_ids[self.place - 1][1] != "":
-                actual = getattr(ratings, self.tournament.result_ids[self.place - 1][1]).value
+            if self.tournament.result_ids_and_ratings[self.place - 1][1] != "":
+                actual = getattr(ratings, self.tournament.result_ids_and_ratings[self.place - 1][1]).value
                 expected = getattr(ratings, self.tournament.sorted_ratings[self.place - 1]).value
         # 1 to remove push up 0 weights (what about -1 weights? does that make sense)
         return expected - actual + 1
@@ -133,13 +159,9 @@ class Stats_Row(Tournament):
     def _calculate_expected_rating_for_placement(self):
         # Insert expected_rating_for_placement and weighted_performance
         if self.tournament.number_of_participants > 0:
-            if self.tournament.result_ids[self.place - 1][1] != "":
+            if self.tournament.result_ids_and_ratings[self.place - 1][1] != "":
                 expected_rating_for_placement = self.tournament.sorted_ratings[self.place - 1]
         return expected_rating_for_placement
-
-
-
-
 
 
 
@@ -166,9 +188,17 @@ def add_tournament_stats(tournament_id, db_cursor):
 
         try:
             current_row = Stats_Row(this_tournament, tournament_results_id, tournament_id, place, last_name, first_name)
-            print(current_row.get_insert_query())
+            #print(current_row.get_insert_query())
+            #db_cursor.execute(current_row.get_insert_query())
         except:
             print("Failed to build row where tournament_results(id) = " + str(tournament_results_id))
+
+
+
+
+
+
+
 
 ########### Program to add table ###########
 
