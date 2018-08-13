@@ -30,7 +30,7 @@ class Tournament:
             print("Error connecting.")
 
         self.number_of_participants = self._calculate_number_of_participants()
-        self.result_ids_and_ratings = self._retrieve_result_ids()
+        self.result_ids_and_ratings = self._retrieve_result_ids_and_ratings()
         self.sorted_ratings = self._calculate_sorted_ratings()
         self.rating_counts = self._calculate_rating_counts()
 
@@ -45,7 +45,7 @@ class Tournament:
         # print("Participants: " + str(number_of_participants) + ".")
         return number_of_participants
 
-    def _retrieve_result_ids(self):
+    def _retrieve_result_ids_and_ratings(self):
         # Get all results of a single tournament
         cursor.execute("SELECT id, rating_before FROM tournament_results WHERE tournament_id =" + str(self.id_num) + "")
         tournament_results = cursor.fetchall()
@@ -70,6 +70,7 @@ class Tournament:
                 sorted_ratings.append(rating[0][0])
         return sorted_ratings
     
+    # used to find median later / expected placement
     def _calculate_rating_counts(self):
         rating_counts = [['A', 0], ['B', 0], ['C', 0], ['D', 0], ['E', 0], ['U', 0]]
         rating_count_index = 0
@@ -135,10 +136,6 @@ class Stats_Row(Tournament):
     # can't be used without db cursor
 
     def _calculate_inverted_placement(self):
-
-        #cursor.execute("SELECT place FROM tournament_results WHERE id = " + str(self.tournament_results_id) + ";")
-        #placement = cursor.fetchall()[0][0]
-        # print("Placement: " + str(placement))
         return self.tournament.number_of_participants - self.place + 1
 
     def _calculate_performance_points(self):
