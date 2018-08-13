@@ -47,6 +47,7 @@ def single_csv_to_db(f):
         # Handles tournament changes in CSV (Creates new row in tournaments)
         if is_new_tournament(tournament_row_prev, tournament_row):
             tournament_row_prev = tournament_row.copy()
+            # doesn't this break modularity? won't handle new csv well
             tournament_id += 1
             tournament_row.insert(0, str(tournament_id))
             
