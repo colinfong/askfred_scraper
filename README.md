@@ -10,7 +10,7 @@ A webscraper that pulls public fencing tournament result data from https://askfr
 ## Installing
 1. Retrieve all tournament links and proceed to scrape each of them for their CSV download link. The links are then stored in    all_csv_links.json.
 ```
-python 3 all_csvlinks.py
+python3 all_csvlinks.py
 ```
 2. Download all CSVs into a folder.
 `python3 download_csvs.py`
